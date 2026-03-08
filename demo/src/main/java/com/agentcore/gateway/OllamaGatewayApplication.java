@@ -1,4 +1,4 @@
-package Ollama_Gateway.demo;
+package com.agentcore.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
