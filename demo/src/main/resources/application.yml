@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ollama-gateway
+  thymeleaf:
+    cache: false
+  servlet:
+    multipart:
+      max-request-size: 50MB
+      max-file-size: 50MB
+
+gateway:
+  ollama-base-url: http://localhost:11434
+  admin-secret-key: "admin-secret-change-me"
+
+  api-keys:
+    "sk-user1-abc123xyz456": "User 1 - kunal"
+    "sk-user2-def456uvw789": "User 2 - kunal1"
+
+  rate-limit:
+    enabled: true
+    default-requests-per-minute: 20
+    default-max-concurrent: 3
+    per-key-limits:
+      "sk-user1-abc123xyz456": 60
+
+  monitoring:
+    gpu-enabled: true
+    nvidia-smi-path: "nvidia-smi"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    export:
+      enabled: true
+
+logging:
+  level:
+    com.ollamagateway: DEBUG
+    org.springframework.security: WARN
