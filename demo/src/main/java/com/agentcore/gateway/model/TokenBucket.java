@@ -74,8 +74,23 @@ public class TokenBucket {
             long updated=Math.min(maxMilliTokens,current+milliTokensToAdd);
             milliTokens.set(updated);
             lastRefillTime.set(now);
-            
+
         }
     }
+
+    public int getAvailableTokens(){
+        refill();
+        return (int)(milliTokens.get()/1000);
+    }
+
+    public double getRetryAfterSeconds(){
+        long deficit=1000-milliTokens.get();
+        if(deficit<=0){
+            return 0;
+        }
+        double milliTokensPerMs=refillRatePerMs*1000;
+        return (deficit/milliTokensPerMs)/1000.0;
+        
+    }    
 
 }
