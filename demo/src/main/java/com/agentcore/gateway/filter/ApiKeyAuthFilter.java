@@ -1,6 +1,7 @@
 package com.agentcore.gateway.filter;
 
 import com.agentcore.gateway.service.ApiKeyService;
+import com.agentcore.gateway.model.ApiKeyInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,7 +29,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter{
     public static final String API_KEY_ATTR ="authenticated_api_key";
 
     @Override   
-    protected void doFilterInternal(HttpServletRequest request, HttpServletRequest response, FilterChain filterChain)
+    protected void doFilterInternal(@org.springframework.lang.NonNull HttpServletRequest request, @org.springframework.lang.NonNull HttpServletResponse response, @org.springframework.lang.NonNull FilterChain filterChain)
             throws ServletException, IOException{
                 String path = request.getRequestURI();
 
@@ -69,7 +70,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter{
                 }
 
                 wrappedRequest.setAttribute(API_KEY_ATTR, keyInfo.get());
-                log.debug("Auth OK : [{}] -> {}", keyInfo.get().getLable(),path);
+                log.debug("Auth OK : [{}] -> {}", keyInfo.get().getLabel(),path);
                 filterChain.doFilter(wrappedRequest,response);
 
 
@@ -107,3 +108,6 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter{
     
     
 }
+
+
+

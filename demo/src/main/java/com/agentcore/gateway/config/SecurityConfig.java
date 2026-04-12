@@ -1,7 +1,7 @@
 package com.agentcore.gateway.config;
 
-import com.ollamagateway.filter.ApiKeyAuthFilter;
-import com.ollamagateway.filter.RateLimitFilter;
+import com.agentcore.gateway.filter.ApiKeyAuthFilter;
+import com.agentcore.gateway.filter.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .anyRequest().denyAll()
         )
         .addFilterBefore(apiKeyAuthFilter,UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(rateFilterAfter,ApiKeyAuthFilter.class);
+        .addFilterAfter(rateLimitFilter,ApiKeyAuthFilter.class);
 
         return http.build();
         
@@ -59,3 +59,4 @@ public class SecurityConfig {
         return source;
     }
 }
+

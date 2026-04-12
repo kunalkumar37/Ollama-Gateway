@@ -3,24 +3,12 @@ package com.agentcore.gateway.service;
 import com.agentcore.gateway.config.GatewayProperties;
 import com.agentcore.gateway.model.ApiKeyInfo;
 import com.agentcore.gateway.model.TokenBucket;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
-import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -33,13 +21,13 @@ public class RateLimiterService {
 
     public RateLimitResult tryConsume(ApiKeyInfo keyInfo){
         if(!props.getRateLimit().isEnabled()){
-            return RateLimitResult.allowed();
+            return RateLimitResult.createAllowed();
         }
 
         TokenBucket bucket = getOrCreateBucket(keyInfo);
         boolean allowed = bucket.tryConsume();
         if(allowed){
-            return RateLimitResult.allowed();
+            return RateLimitResult.createAllowed();
 
         }
         double retryAfter = bucket.getRetryAfterSeconds();
@@ -47,7 +35,7 @@ public class RateLimiterService {
             ApiKeyService.maskKey(keyInfo.getKey()),
             String.format("%.2f",retryAfter)
         );
-        return RateLimitResult.rejected(retryAfter,bucket.getMaxTokens());
+        return RateLimitResult.createRejected(retryAfter,bucket.getMaxTokens());
 
     }
 
@@ -90,12 +78,12 @@ public class RateLimiterService {
     }
 
     public record RateLimitResult(boolean allowed, double retryAfterSeconds, int limit){
-        static RateLimitResult allowed(){
+        static RateLimitResult createAllowed(){
             return new RateLimitResult(true,0,0);
 
         }
 
-        static RateLimitResult rejected(double retryAfter, int limit){
+        static RateLimitResult createRejected(double retryAfter, int limit){
             return new RateLimitResult(false,retryAfter,limit);
         }
     }
@@ -105,3 +93,4 @@ public class RateLimiterService {
     }
 
 }
+

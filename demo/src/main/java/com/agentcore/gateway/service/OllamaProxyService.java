@@ -1,11 +1,21 @@
 package com.agentcore.gateway.service;
 
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import io.netty.handler.codec.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 @Slf4j
 @Service
@@ -18,6 +28,7 @@ public class OllamaProxyService {
      * Forward a standard (non-streaming) request to Ollama.
      * Blocks until full response is received.
      */
+    @SuppressWarnings("null")
     public String forwardRequest(String path,
                                   HttpMethod method,
                                   String requestBody) {
@@ -60,6 +71,7 @@ public class OllamaProxyService {
      * without buffering the whole response — critical for LLMs
      * that generate thousands of tokens.
      */
+    @SuppressWarnings("null")
     public StreamingResponseBody forwardStreamingRequest(
             String path,
             HttpMethod method,
@@ -148,3 +160,4 @@ public class OllamaProxyService {
         }
     }
 }
+

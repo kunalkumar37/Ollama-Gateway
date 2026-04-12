@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class WebClientConfig {
 
     @Bean
+    @SuppressWarnings("null")
     public WebClient ollamaWebClient(GatewayProperties props){
         HttpClient httpClient = HttpClient.create()
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,10_000)
