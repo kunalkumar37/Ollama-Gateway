@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Gateway Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --border: #2a2d3e;
+            --accent: #7c6af7;
+            --cyan: #22d3ee;
+            --green: #22c55e;
+            --red: #ef4444;
+            --yellow: #eab308;
+            --text: #e2e8f0;
+            --muted: #64748b;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text);
+               font-family:'Segoe UI',system-ui,sans-serif; }
+
+        header {
+            background:var(--surface);
+            border-bottom:1px solid var(--border);
+            padding:16px 24px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+        }
+        .logo { font-size:20px; font-weight:700; color:var(--accent); }
+        .logo span { color:var(--text); }
+
+        .badges { display:flex; gap:12px; align-items:center; }
+        .badge {
+            display:flex; align-items:center; gap:6px;
+            padding:4px 12px; border-radius:20px;
+            font-size:13px; font-weight:600;
+        }
+        .badge.up   { background:rgba(34,197,94,0.15); color:var(--green); }
+        .badge.down { background:rgba(239,68,68,0.15);  color:var(--red); }
+        .dot { width:8px; height:8px; border-radius:50%;
+               background:currentColor; }
+        .pulse { animation:pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        main { padding:24px; display:grid; gap:20px; }
+
+        .cards {
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(190px,1fr));
+            gap:16px;
+        }
+        .card {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:20px;
+        }
+        .card.hi { border-color:var(--accent); }
+        .card .lbl {
+            font-size:11px; color:var(--muted);
+            text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;
+        }
+        .card .val { font-size:30px; font-weight:700; }
+        .card .sub { font-size:12px; color:var(--muted); margin-top:4px; }
+
+        .g  { color:var(--green); }
+        .r  { color:var(--red); }
+        .y  { color:var(--yellow); }
+        .cy { color:var(--cyan); }
+
+        .bar { height:6px; background:var(--border);
+               border-radius:3px; margin-top:8px; overflow:hidden; }
+        .fill { height:100%; border-radius:3px; transition:width .5s; }
+        .fill.cpu  { background:var(--accent); }
+        .fill.gpu  { background:var(--cyan); }
+        .fill.mem  { background:var(--yellow); }
+
+        .charts {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:16px;
+        }
+        @media(max-width:800px){ .charts{ grid-template-columns:1fr; } }
+
+        .chart-box {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:20px;
+        }
+        .chart-box h3 {
+            font-size:12px; color:var(--muted);
+            text-transform:uppercase; letter-spacing:1px;
+            margin-bottom:16px;
+        }
+
+        .tbl-box {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:20px;
+        }
+        .tbl-box h3 {
+            font-size:12px; color:var(--muted);
+            text-transform:uppercase; letter-spacing:1px;
+            margin-bottom:16px;
+        }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        th {
+            text-align:left; padding:8px 10px;
+            color:var(--muted); font-size:11px;
+            border-bottom:1px solid var(--border);
+        }
+        td { padding:10px 10px; border-bottom:1px solid rgba(42,45,62,.4); }
+        tr:last-child td { border-bottom:none; }
+
+        .rl-row {
+            display:flex; align-items:center;
+            gap:10px; padding:8px 0;
+            border-bottom:1px solid var(--border);
+        }
+        .rl-row:last-child { border-bottom:none; }
+        .rl-key {
+            font-size:11px; color:var(--muted);
+            width:130px; flex-shrink:0; font-family:monospace;
+        }
+        .rl-wrap {
+            flex:1; height:8px;
+            background:var(--border);
+            border-radius:4px; overflow:hidden;
+        }
+        .rl-fill {
+            height:100%; border-radius:4px;
+            transition:width .5s;
+            background:var(--green);
+        }
+        .rl-fill.warn { background:var(--yellow); }
+        .rl-fill.crit { background:var(--red); }
+        .rl-num { font-size:11px; color:var(--muted); width:55px; text-align:right; }
+
+        footer {
+            text-align:center; color:var(--muted);
+            font-size:12px; padding:16px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">🚀 Ollama <span>Gateway</span></div>
+    <div class="badges">
+        <div class="badge" id="ollama-badge">
+            <div class="dot"></div> Checking...
+        </div>
+        <div class="badge up">
+            <div class="dot pulse"></div> Gateway UP
+        </div>
+        <span style="font-size:12px;color:var(--muted)">
+            Updated: <span id="updated">—</span>
+        </span>
+    </div>
+</header>
+
+<main>
+
+    <!-- Stat Cards -->
+    <div class="cards">
+        <div class="card">
+            <div class="lbl">CPU Usage</div>
+            <div class="val" id="c-cpu">—%</div>
+            <div class="bar"><div class="fill cpu" id="b-cpu" style="width:0"></div></div>
+            <div class="sub" id="s-cpu">—</div>
+        </div>
+        <div class="card">
+            <div class="lbl">GPU Usage</div>
+            <div class="val" id="c-gpu">—%</div>
+            <div class="bar"><div class="fill gpu" id="b-gpu" style="width:0"></div></div>
+            <div class="sub" id="s-gpu">—</div>
+        </div>
+        <div class="card">
+            <div class="lbl">RAM</div>
+            <div class="val cy" id="c-mem">—%</div>
+            <div class="bar"><div class="fill mem" id="b-mem" style="width:0"></div></div>
+            <div class="sub" id="s-mem">—</div>
+        </div>
+        <div class="card hi">
+            <div class="lbl">Active Requests</div>
+            <div class="val g" id="c-active">0</div>
+            <div class="sub" id="s-total">Total: 0</div>
+        </div>
+        <div class="card">
+            <div class="lbl">Rejected</div>
+            <div class="val r" id="c-rejected">0</div>
+            <div class="sub">Rate limited</div>
+        </div>
+        <div class="card">
+            <div class="lbl">GPU Temp</div>
+            <div class="val y" id="c-temp">—°C</div>
+            <div class="sub" id="s-vram">VRAM: —</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts">
+        <div class="chart-box">
+            <h3>📈 CPU &amp; GPU — Last 60 Samples</h3>
+            <canvas id="usageChart" height="120"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>📊 Requests per Sample</h3>
+            <canvas id="reqChart" height="120"></canvas>
+        </div>
+    </div>
+
+    <!-- Keys + Rate Limits -->
+    <div class="charts">
+        <div class="tbl-box">
+            <h3>🔑 API Key Usage</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Requests</th>
+                        <th>Last Used</th>
+                    </tr>
+                </thead>
+                <tbody id="key-tbody">
+                    <tr><td colspan="3" style="color:var(--muted)">
+                        Loading...
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="tbl-box">
+            <h3>⚡ Rate Limit Buckets</h3>
+            <div id="rl-box">
+                <div style="color:var(--muted);font-size:13px">
+                    No active buckets yet.
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    Ollama Gateway — polling every 2s
+</footer>
+
+<script>
+Chart.defaults.color         = '#64748b';
+Chart.defaults.borderColor   = '#2a2d3e';
+
+const usageChart = new Chart(
+    document.getElementById('usageChart'), {
+    type:'line',
+    data:{
+        labels:[],
+        datasets:[
+            { label:'CPU %',  data:[], borderColor:'#7c6af7',
+              backgroundColor:'#7c6af722', fill:true,
+              tension:.4, borderWidth:2, pointRadius:0 },
+            { label:'GPU %',  data:[], borderColor:'#22d3ee',
+              backgroundColor:'#22d3ee22', fill:true,
+              tension:.4, borderWidth:2, pointRadius:0 }
+        ]
+    },
+    options:{
+        responsive:true, animation:false,
+        scales:{
+            x:{ display:false },
+            y:{ min:0, max:100, grid:{ color:'#2a2d3e' } }
+        },
+        plugins:{ legend:{ position:'top',
+            labels:{ boxWidth:12, padding:12 } } }
+    }
+});
+
+const reqChart = new Chart(
+    document.getElementById('reqChart'), {
+    type:'bar',
+    data:{
+        labels:[],
+        datasets:[{
+            label:'Requests', data:[],
+            backgroundColor:'#7c6af733',
+            borderColor:'#7c6af7',
+            borderWidth:1
+        }]
+    },
+    options:{
+        responsive:true, animation:false,
+        scales:{
+            x:{ display:false },
+            y:{ min:0, grid:{ color:'#2a2d3e' } }
+        },
+        plugins:{ legend:{ display:false } }
+    }
+});
+
+function colorFor(pct) {
+    if(pct > 85) return 'r';
+    if(pct > 60) return 'y';
+    return 'g';
+}
+
+function fmt(epochSec) {
+    return new Date(epochSec * 1000).toLocaleTimeString();
+}
+
+function update(d) {
+    document.getElementById('updated').textContent =
+        new Date().toLocaleTimeString();
+
+    // Ollama badge
+    const ob = document.getElementById('ollama-badge');
+    ob.className = 'badge ' + (d.ollamaAlive ? 'up' : 'down');
+    ob.innerHTML = d.ollamaAlive
+        ? '<div class="dot pulse"></div> Ollama UP'
+        : '<div class="dot"></div> Ollama DOWN';
+
+    // CPU
+    const cpu = d.cpu.toFixed(1);
+    const cc = document.getElementById('c-cpu');
+    cc.textContent = cpu + '%';
+    cc.className = 'val ' + colorFor(d.cpu);
+    document.getElementById('b-cpu').style.width = cpu + '%';
+
+    // RAM
+    const mem = d.memPercent.toFixed(1);
+    document.getElementById('c-mem').textContent = mem + '%';
+    document.getElementById('b-mem').style.width = mem + '%';
+    document.getElementById('s-mem').textContent =
+        (d.memUsed/1024).toFixed(1) + ' / ' +
+        (d.memTotal/1024).toFixed(1) + ' GB';
+
+    // GPU
+    if(d.gpuAvailable) {
+        const gv = document.getElementById('c-gpu');
+        gv.textContent = d.gpu.toFixed(1) + '%';
+        gv.className = 'val ' + colorFor(d.gpu);
+        document.getElementById('b-gpu').style.width = d.gpu + '%';
+        document.getElementById('s-gpu').textContent =
+            'VRAM: ' + d.gpuMemPercent.toFixed(1) + '% used';
+        const ct = document.getElementById('c-temp');
+        ct.textContent = d.gpuTemp + '°C';
+        ct.className = 'val ' +
+            (d.gpuTemp > 80 ? 'r' : d.gpuTemp > 70 ? 'y' : 'g');
+        document.getElementById('s-vram').textContent =
+            'VRAM: ' + (d.gpuMemUsed/1024).toFixed(1) +
+            ' / ' + (d.gpuMemTotal/1024).toFixed(1) + ' GB';
+    } else {
+        document.getElementById('c-gpu').textContent = 'N/A';
+        document.getElementById('c-temp').textContent = 'N/A';
+        document.getElementById('s-gpu').textContent = 'No NVIDIA GPU';
+    }
+
+    // Request counts
+    document.getElementById('c-active').textContent   = d.activeRequests;
+    document.getElementById('s-total').textContent    = 'Total: ' +
+        d.totalRequests.toLocaleString();
+    document.getElementById('c-rejected').textContent = d.rejectedRequests;
+
+    // Charts
+    const labels = (d.timeHistory||[]).map(fmt);
+    usageChart.data.labels             = labels;
+    usageChart.data.datasets[0].data   = d.cpuHistory || [];
+    usageChart.data.datasets[1].data   = d.gpuHistory || [];
+    usageChart.update();
+
+    reqChart.data.labels               = labels;
+    reqChart.data.datasets[0].data     = d.reqHistory || [];
+    reqChart.update();
+
+    // Key table
+    const tbody = document.getElementById('key-tbody');
+    if(d.keyStats && d.keyStats.length > 0) {
+        tbody.innerHTML = d.keyStats.map(k => `
+            <tr>
+                <td>${k.label}</td>
+                <td>${k.requests.toLocaleString()}</td>
+                <td style="color:var(--muted);font-size:12px">
+                    ${k.lastUsed === 'Never' ? '—' :
+                      new Date(k.lastUsed).toLocaleTimeString()}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Rate limit buckets
+    const rl = document.getElementById('rl-box');
+    const entries = Object.entries(d.rateLimits || {});
+    if(entries.length > 0) {
+        rl.innerHTML = entries.map(([key, s]) => {
+            const pct = ((s.available / s.max) * 100).toFixed(0);
+            const cls = pct < 20 ? 'crit' : pct < 50 ? 'warn' : '';
+            return `
+                <div class="rl-row">
+                    <div class="rl-key">${key}</div>
+                    <div class="rl-wrap">
+                        <div class="rl-fill ${cls}"
+                             style="width:${pct}%"></div>
+                    </div>
+                    <div class="rl-num">${s.available}/${s.max}</div>
+                </div>
+                <div style="font-size:11px;color:var(--muted);
+                            padding:2px 0 6px 130px;">
+                    ${s.concurrent} active · ${s.rejected} rejected
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+async function poll() {
+    try {
+        const r = await fetch('/dash/metrics');
+        if(r.ok) update(await r.json());
+    } catch(e) { console.error(e); }
+}
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
