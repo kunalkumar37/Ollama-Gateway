@@ -2,6 +2,7 @@ package com.agentcore.gateway.service;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -51,10 +52,15 @@ public class SystemMonitorService {
     public void collectAll(){
         collectCpuAndMemory();
         if(props.getMonitoring().isGpuEnabled()){
-            collectGpu();
+            collectAll();
 
         }
         updateHistory();
+    }
+
+    private void updateHistory() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'updateHistory'");
     }
 
     private void collectCpuAndMemory(){
@@ -82,12 +88,45 @@ public class SystemMonitorService {
 
 
 
+    private double round(double d, int i) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'round'");
+    }
+
+    private void updateHistory(){
+        long now = Instant.now().getEpochSecond();
+        long currentTotal = totalRequests.get();
+        long requestsThisInterval = currentTotal - lastSnapshotsRequests;
+        lastSnapshotRequests = currentTotal;
+
+        synchronized (cpuHistory){
+            cpuHistory.add(cpuPercent);
+            gpuHistory.add(gpuPercent);
+            requestHistory.add(requestsThisInterval);
+            timeHistory.add(String.valueOf(now));
+
+
+            if(cpuHistory.size() > HISTORY_SIZE){
+                cpuHistory.remove(0);
+                requestHistory.remove(0);
+                timeHistory.remove(0);
+            }
+        }
+    }
+
+
+
+
+
     public void onRequestStart() {
         // Monitor request start
+        totalRequests.incrementAndGet();
+        activeRequests.incrementAndGet();
     }
     
     public void onRequestEnd() {
         // Monitor request end
+        
     }
     
     public void onRequestRejected() {
