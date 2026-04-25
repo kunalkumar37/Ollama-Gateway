@@ -1,10 +1,17 @@
 package com.agentcore.gateway.controller;
 
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import com.agentcore.gateway.filter.ApiKeyAuthFilter;
+import com.agentcore.gateway.model.ApiKeyInfo;
 import com.agentcore.gateway.service.ApiKeyService;
 import com.agentcore.gateway.service.OllamaProxyService;
 
@@ -42,5 +49,51 @@ public class ProxyController {
     }
 
     @GetMapping("/models")
-    
+    public ResponseEntity<String> listModels(HttpServletRequest request){
+        recordRequest(request);
+        String body = ollamaProxyService.getModels();
+        return ResponseEntity.ok(body)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
+    }
+
+
+    private ResponseEntity<?> proxy(String ollamaPath, HttpMethod method, String requestBody){
+
+        boolean streaming = ollamaProxyService.isStreamingRequest(requestBody);
+
+        if(streaming){
+            log.debug("Streaming -> ollama {}", ollamaPath);
+            StreamingResponseBody stream = ollamaProxyService.forwardStreamingRequest(
+                ollamaPath, method, requestBody
+            );
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_NDJSON)
+                .body(stream);
+
+
+        }
+        else{
+            log.debug("Standard -> Ollama {}", ollamaPath);
+            String responseBody = ollamaProxyService.forwardRequest(
+                ollamaPath, method, requestBody
+            );
+
+            return ResponseEntity.ok() 
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(responseBody);
+                
+
+        }
+    }
+
+    private void recordRequest(HttpServletRequest request){
+        ApiKeyInfo keyInfo = (ApiKeyInfo) request.getAttribute(ApiKeyAuthFilter.API_KEY_ATTR);
+        if(keyInfo != null){
+            apiKeyService.recordRequest(keyInfo.getKey());
+            
+        }
+    }
+
+
 }
