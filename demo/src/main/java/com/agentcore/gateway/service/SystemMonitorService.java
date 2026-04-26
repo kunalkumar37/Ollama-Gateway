@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Map;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class SystemMonitorService {
      private final GatewayProperties props;
+
+    public SystemMonitorService(GatewayProperties props) {
+        this.props = props;
+    }
 
     // ─── Current Values ──────────────────────────────────────────────────────
     @Getter private volatile double cpuPercent     = 0.0;
@@ -36,8 +41,7 @@ public class SystemMonitorService {
     // ─── Request Counters ────────────────────────────────────────────────────
     private final AtomicLong totalRequests  = new AtomicLong(0);
     private final AtomicLong activeRequests = new AtomicLong(0);
-    private final AtomicLong totalRejected  = new AtomicLong(0);
-
+    
     // ─── Rolling History (60 points = 2 min at 2s interval) ─────────────────
     private static final int HISTORY_SIZE = 60;
 
@@ -45,24 +49,20 @@ public class SystemMonitorService {
     @Getter private final List<Double> gpuHistory     = new ArrayList<>();
     @Getter private final List<Long>   requestHistory = new ArrayList<>();
     @Getter private final List<String> timeHistory    = new ArrayList<>();
-
     private long lastSnapshotRequests = 0;
 
+    
     @Scheduled(fixedRate =2000)
     public void collectAll(){
         collectCpuAndMemory();
         if(props.getMonitoring().isGpuEnabled()){
-            collectAll();
+            collectGpu();
 
         }
         updateHistory();
     }
 
-    private void updateHistory() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'updateHistory'");
-    }
-
+    
     private void collectCpuAndMemory(){
         try{
             OperatingSystemMXBean os= ManagementFactory.getOperatingSystemMXBean();
@@ -84,19 +84,27 @@ public class SystemMonitorService {
             log.debug("CPU/Memory collection error: {}", e.getMessage());
         }
     }
-    
 
+    private void collectGpu(){
+        try{
+            // GPU monitoring would be implemented here
+            // For now, GPU values remain at defaults
+            log.debug("GPU monitoring not yet implemented");
+        } catch (Exception e) {
+            log.debug("GPU collection error: {}", e.getMessage());
+        }
+    }
 
-
-    private double round(double d, int i) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'round'");
+    private double round(double d, int places) {
+        if (places < 0) throw new IllegalArgumentException("places must be >= 0");
+        long factor = (long) Math.pow(10, places);
+        return (double) Math.round(d * factor) / factor;
     }
 
     private void updateHistory(){
         long now = Instant.now().getEpochSecond();
         long currentTotal = totalRequests.get();
-        long requestsThisInterval = currentTotal - lastSnapshotsRequests;
+        long requestsThisInterval = currentTotal - lastSnapshotRequests;
         lastSnapshotRequests = currentTotal;
 
         synchronized (cpuHistory){
@@ -133,4 +141,28 @@ public class SystemMonitorService {
         // Monitor rejected request
         log.debug("Request rejected by rate limiter");
     }
+
+
+    public long getActiveRequests() {
+        return activeRequests.get();
+    }
+
+    public Map<String, Object> getSnapshot() {
+        return Map.of(
+            "cpu_percent", cpuPercent,
+            "mem_percent", memPercent,
+            "used_mem_mb", usedMemMb,
+            "total_mem_mb", totalMemMb,
+            "gpu_percent", gpuPercent,
+            "gpu_mem_percent", gpuMemPercent,
+            "gpu_temp_c", gpuTemperature,
+            "gpu_available", gpuAvailable,
+            "total_requests", totalRequests.get()
+        );
+    }
 }
+
+
+
+
+

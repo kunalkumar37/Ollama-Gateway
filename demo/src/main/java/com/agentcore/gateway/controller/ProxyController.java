@@ -49,15 +49,17 @@ public class ProxyController {
     }
 
     @GetMapping("/models")
-    public ResponseEntity<String> listModels(HttpServletRequest request){
+    @SuppressWarnings("null")
+    public ResponseEntity<?> listModels(HttpServletRequest request){
         recordRequest(request);
         String body = ollamaProxyService.getModels();
-        return ResponseEntity.ok(body)
+        return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body);
     }
 
 
+        @SuppressWarnings("null")
     private ResponseEntity<?> proxy(String ollamaPath, HttpMethod method, String requestBody){
 
         boolean streaming = ollamaProxyService.isStreamingRequest(requestBody);
@@ -68,7 +70,7 @@ public class ProxyController {
                 ollamaPath, method, requestBody
             );
             return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_NDJSON)
+                .contentType(MediaType.parseMediaType("application/x-ndjson"))
                 .body(stream);
 
 
@@ -79,7 +81,7 @@ public class ProxyController {
                 ollamaPath, method, requestBody
             );
 
-            return ResponseEntity.ok() 
+            return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(responseBody);
                 
@@ -97,3 +99,7 @@ public class ProxyController {
 
 
 }
+
+
+
+
